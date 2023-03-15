@@ -1,5 +1,6 @@
 """gRPC specific class and methods for the MAPDL gRPC client """
 
+import asyncio
 import fnmatch
 from functools import wraps
 import glob
@@ -423,7 +424,7 @@ class MapdlGrpc(_MapdlCore):
         # open the channel
         channel_str = f"{ip}:{port}"
         self._log.debug("Opening insecure channel at %s", channel_str)
-        return grpc.insecure_channel(
+        return grpc.aio.insecure_channel(
             channel_str,
             options=[
                 ("grpc.max_receive_message_length", MAX_MESSAGE_LENGTH),
@@ -683,16 +684,24 @@ class MapdlGrpc(_MapdlCore):
         timeout : float
             Time in seconds to wait until the connection has been established
         """
-        self._state = grpc.channel_ready_future(self._channel)
+        # self._state = grpc.channel_ready_future(self._channel)
         self._stub = mapdl_grpc.MapdlServiceStub(self._channel)
 
-        # verify connection
-        tstart = time.time()
-        while ((time.time() - tstart) < timeout) and not self._state._matured:
-            time.sleep(0.01)
+        self._channel.channel_ready()  # This should be another thread.
 
-        if not self._state._matured:  # pragma: no cover
+        if self._channel.get_state() not in [
+            grpc.ChannelConnectivity.READY,
+            grpc.ChannelConnectivity.IDLE,
+        ]:
             return False
+
+        # verify connection
+        # tstart = time.time()
+        # while ((time.time() - tstart) < timeout) and not self._state._matured:
+        #     time.sleep(0.01)
+
+        # if not self._state._matured:  # pragma: no cover
+        #     return False
         self._log.debug("Established connection to MAPDL gRPC")
 
         # keeps mapdl session alive
@@ -732,7 +741,7 @@ class MapdlGrpc(_MapdlCore):
         if set_no_abort:
             self._set_no_abort()
 
-        self._run_at_connect()
+        # self._run_at_connect()
         return True
 
     @property
@@ -885,7 +894,7 @@ class MapdlGrpc(_MapdlCore):
     def _mesh(self):
         return self._mesh_rep
 
-    def _run(self, cmd, verbose=False, mute=None):
+    async def _run(self, cmd, verbose=False, mute=None):
         """Sens a command and return the response as a string.
 
         Parameters
@@ -933,7 +942,12 @@ class MapdlGrpc(_MapdlCore):
         if verbose:
             response = self._send_command_stream(cmd, True)
         else:
-            response = self._send_command(cmd, mute=mute)
+            response = asyncio.get_event_loop().create_task(
+                self._send_command(cmd, mute=mute)
+            )
+            await response
+            # response = self._send_command(cmd, mute=mute)
+
         self._busy = False
 
         return response.strip()
@@ -944,7 +958,7 @@ class MapdlGrpc(_MapdlCore):
         return self._busy
 
     @protect_grpc
-    def _send_command(self, cmd, mute=False):
+    async def _send_command(self, cmd, mute=False):
         """Send a MAPDL command and return the response as a string"""
         opt = ""
         if mute:
@@ -952,7 +966,7 @@ class MapdlGrpc(_MapdlCore):
 
         request = pb_types.CmdRequest(command=cmd, opt=opt)
         # TODO: Capture keyboard exception and place this in a thread
-        grpc_response = self._stub.SendCommand(request)
+        grpc_response = await self._stub.SendCommand(request)
 
         resp = grpc_response.response
         if resp is not None:
@@ -2020,20 +2034,20 @@ class MapdlGrpc(_MapdlCore):
         finally:
             self._get_lock = False
 
-        if getresponse.type == 0:
-            self._log.debug(
-                "The 'grpc' get method seems to have failed. Trying old implementation for more verbose output."
-            )
-            try:
-                out = self.run("*GET,__temp__," + cmd)
-            except MapdlRuntimeError:
-                # Get can thrown some errors, in that case, they are caught in the default run method.
-                raise
-            else:
-                # Here we catch the rest of the errors and warnings
-                raise ValueError(out)
+        # if getresponse.type == 0:
+        #     self._log.debug(
+        #         "The 'grpc' get method seems to have failed. Trying old implementation for more verbose output."
+        #     )
+        #     try:
+        #         out = self.run("*GET,__temp__," + cmd)
+        #     except MapdlRuntimeError:
+        #         # Get can thrown some errors, in that case, they are caught in the default run method.
+        #         raise
+        #     else:
+        #         # Here we catch the rest of the errors and warnings
+        #         raise ValueError(out)
 
-        if getresponse.type == 1:
+        if True:
             return getresponse.dval
         elif getresponse.type == 2:
             return getresponse.sval

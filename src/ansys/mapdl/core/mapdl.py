@@ -1,5 +1,6 @@
 """Module to control interaction with MAPDL through Python"""
 
+import asyncio
 import atexit
 from functools import wraps
 import glob
@@ -2890,7 +2891,8 @@ class _MapdlCore(Commands):
                 self._check_parameter_name(param_name)
 
         verbose = kwargs.get("verbose", False)
-        text = self._run(command, verbose=verbose, mute=mute)
+        # text = self._run(command, verbose=verbose, mute=mute)
+        text = asyncio.run(self._run(command, verbose=verbose, mute=mute))
 
         if mute:
             return
