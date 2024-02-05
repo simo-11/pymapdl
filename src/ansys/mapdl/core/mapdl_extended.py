@@ -2032,8 +2032,18 @@ class _MapdlCommandExtended(_MapdlCore):
 
     @wraps(_MapdlCore.prcint)
     def prcint(self, *args, **kwargs):
+        """Wrapping command for enriched output"""
+        obj = CommandListingOutput(super().prcint(*args, **kwargs))
 
-        return
+        def parse(output):
+            pass
+
+        def get_columns():
+            pass
+
+        obj._parse_table = parse
+        obj.get_columns = get_columns
+        return obj
 
 
 class _MapdlExtended(_MapdlCommandExtended):
