@@ -79,7 +79,7 @@ GROUP_DATA_START = ["NODE", "ELEM"]
 # so they won't be wrapped.
 CMD_RESULT_LISTING = [
     "NLIN",  # not documented
-    "PRCI",
+    # "PRCI", # this is going to be fixed independently #
     "PRDI",  # Not documented.
     "PREF",  # Not documented.
     "PREN",

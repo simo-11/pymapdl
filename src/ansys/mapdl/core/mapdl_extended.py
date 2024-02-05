@@ -2030,6 +2030,11 @@ class _MapdlCommandExtended(_MapdlCore):
 
         return ComponentListing(super().cmlist(*args, **kwargs))
 
+    @wraps(_MapdlCore.prcint)
+    def prcint(self, *args, **kwargs):
+
+        return
+
 
 class _MapdlExtended(_MapdlCommandExtended):
     """Extend Mapdl class with new functions"""
