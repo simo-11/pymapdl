@@ -696,9 +696,8 @@ class LocalMapdlPool:
     def __len__(self):
         count = 0
         for instance in self._instances:
-            if instance:
-                if not instance._exited:
-                    count += 1
+            if instance and not instance._exited:
+                count += 1
         return count
 
     def __getitem__(self, key: int):
@@ -761,7 +760,7 @@ class LocalMapdlPool:
         assert not self._instances[index].exited
         self._instances[index].prep7()
 
-        # LOG.debug("Spawned instance %d. Name '%s'", index, name)
+        LOG.debug(f"Spawned instance {index}. Name '{name}'")
         if pbar is not None:
             pbar.update(1)
 
@@ -779,11 +778,16 @@ class LocalMapdlPool:
                 name = self._names(index)
                 if not instance:  # encountered placeholder
                     continue
-
                 if instance._exited:
+                    instance._log.debug(
+                        f"Instance in port {instance.port} has exited..."
+                    )
                     try:
                         self._spawning_i += 1
 
+                        instance._log.debug(
+                            f"Restarting instance in port {instance.port} because of pool monitoring..."
+                        )
                         self._spawn_mapdl(
                             index,
                             port=instance.port,
@@ -792,6 +796,10 @@ class LocalMapdlPool:
                             exec_file=self._exec_file,
                             start_instance=self._start_instance,
                         ).join()
+
+                        instance._log.debug(
+                            f"Restarted instance in port {instance.port} because of pool monitoring..."
+                        )
 
                     except Exception as e:
                         LOG.error(e, exc_info=True)

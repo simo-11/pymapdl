@@ -527,7 +527,7 @@ class MapdlGrpc(MapdlBase):
                     else ""
                 )
                 raise MapdlConnectionError(
-                    msg + f"The MAPDL process has died{pid_msg}."
+                    msg + f"The MAPDL process has died {pid_msg}."
                 )
 
         self._exited = False

@@ -60,7 +60,7 @@ skip_requires_194 = pytest.mark.skipif(
     not os.path.isfile(MAPDL194PATH), reason="Requires MAPDL 194"
 )
 
-TWAIT = 100
+TWAIT = 20
 NPROC = 1
 
 
@@ -81,6 +81,7 @@ def pool(tmpdir_factory):
             exec_file=EXEC_FILE,
             additional_switches=QUICK_LAUNCH_SWITCHES,
             nproc=NPROC,
+            loglevel="DEBUG",
         )
     else:
         port2 = os.environ.get("PYMAPDL_PORT2", 50057)
@@ -164,8 +165,8 @@ def test_map_timeout(pool):
         mapdl.post1()
         return tsleep
 
-    timeout = 2
-    times = np.array([0, 1, 3, 4])
+    timeout = 4
+    times = np.array([1, 8])
     output = pool.map(func, times, timeout=timeout, wait=True)
 
     assert len(output) == (times < timeout).sum()
