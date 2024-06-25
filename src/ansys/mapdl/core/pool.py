@@ -432,7 +432,7 @@ class LocalMapdlPool:
             pbar = tqdm(total=n, desc="MAPDL Running")
 
         @threaded_daemon
-        def func_wrapper(obj, func, timeout, args=None):
+        def func_wrapper(obj, func, timeout, index=0, args=None):
             """Expect obj to be an instance of Mapdl"""
             complete = [False]
 
@@ -447,8 +447,9 @@ class LocalMapdlPool:
                     results.append(func(obj))
                 complete[0] = True
 
-            run_thread = run(thread_name="map.run")
+            run_thread = run(thread_name=f"map.run-instance_{index}")
             if timeout:
+                obj._log.error("Timeout is active")
                 tstart = time.time()
                 while not complete[0]:
                     time.sleep(0.01)
@@ -459,6 +460,8 @@ class LocalMapdlPool:
                     LOG.error("Killed instance due to timeout of %f seconds", timeout)
                     obj.exit()
             else:
+                obj._log.error("Timeout is NOT active")
+
                 run_thread.join()
                 if not complete[0]:
                     try:
@@ -469,7 +472,7 @@ class LocalMapdlPool:
                     # ensure that the directory is cleaned up
                     if obj._cleanup:
                         # allow MAPDL to die
-                        time.sleep(5)
+                        time.sleep(2)
                         if os.path.isdir(obj.directory):
                             try:
                                 shutil.rmtree(obj.directory)
@@ -489,13 +492,19 @@ class LocalMapdlPool:
             threads = []
             for args in iterable:
                 # grab the next available instance of mapdl
-                instance = self.next_available()
+                instance, i = self.next_available(return_index=True)
                 instance.locked = True
                 threads.append(
                     func_wrapper(
-                        instance, func, timeout, args, thread_name="Map_Thread"
+                        instance,
+                        func,
+                        timeout,
+                        args,
+                        index=i,
+                        thread_name=f"Map_instance_{i}_thread",
                     )
                 )
+                instance.locked = False
 
             if close_when_finished:
                 # start closing any instances that are not in execution
@@ -517,9 +526,17 @@ class LocalMapdlPool:
                     [thread.join() for thread in threads]
 
         else:  # simply apply to all
-            for instance in self._instances:
+            for i, instance in enumerate(self._instances):
                 if instance:
-                    threads.append(func_wrapper(instance, func, timeout))
+                    threads.append(
+                        func_wrapper(
+                            instance,
+                            func,
+                            timeout,
+                            index=i,
+                            thread_name=f"Map_instance_{i}_thread",
+                        )
+                    )
 
             # wait for all threads to complete
             if wait:
@@ -742,6 +759,8 @@ class LocalMapdlPool:
         self._spawning_i += 1
 
         run_location = create_temp_dir(self._root_dir, name=name)
+        if index == 1:
+            self._spawn_kwargs["loglevel"] = "DEBUG"
 
         self._instances[index] = launch_mapdl(
             exec_file=exec_file,

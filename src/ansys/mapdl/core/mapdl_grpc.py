@@ -749,6 +749,7 @@ class MapdlGrpc(MapdlBase):
             self._t_delay = 30
             self._timer = threading.Thread(
                 target=MapdlGrpc._threaded_heartbeat,
+                name="MAPDL_alive_keeper",
                 args=(weakref.proxy(self),),
             )
             self._timer.daemon = True
@@ -1035,6 +1036,10 @@ class MapdlGrpc(MapdlBase):
             self._kill_server()
 
         self._exited = True
+
+        # killing queue processes
+        # if hasattr(self, "_stdout_queue_thread" ):
+        #     self._stdout_queue_thread.
 
         if self._remote_instance:  # pragma: no cover
             # No cover: The CI is working with a single MAPDL instance

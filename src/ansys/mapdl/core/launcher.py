@@ -609,7 +609,8 @@ def launch_grpc(
     )
 
     LOG.debug("Generating queue object for stdout")
-    stdout_queue, _ = _create_queue_for_std(process.stdout)
+    stdout_queue, thread = _create_queue_for_std(process.stdout)
+    # thread.st
 
     # Checking connection
     try:
@@ -638,7 +639,7 @@ def launch_grpc(
 
     # Ending thread
     # Todo: Ending queue thread
-    return port, run_location, process
+    return port, run_location, process, stdout_queue, thread
 
 
 def _check_process_is_alive(process, run_location):
@@ -713,14 +714,15 @@ def _create_queue_for_std(std):
     """Create a queue and thread objects for a given PIPE std"""
 
     def enqueue_output(out, queue):
-        try:
-            for line in iter(out.readline, b""):
-                queue.put(line)
-            out.close()
-        except ValueError:
-            # When killing main process, a ValueError is show:
-            # ValueError: PyMemoryView_FromBuffer(): info -> buf must not be NULL
-            pass
+        while True:
+            try:
+                for line in iter(out.readline, b""):
+                    queue.put(line)
+                out.close()
+            except ValueError:
+                # When killing main process, a ValueError is show:
+                # ValueError: PyMemoryView_FromBuffer(): info -> buf must not be NULL
+                pass
 
     q = Queue()
     t = threading.Thread(target=enqueue_output, args=(std, q))
@@ -1723,7 +1725,7 @@ def launch_mapdl(
                     start_parm,
                 )
 
-            port, actual_run_location, process = launch_grpc(
+            port, actual_run_location, process, stdout_queue, thread = launch_grpc(
                 port=port,
                 ip=ip,
                 add_env_vars=add_env_vars,
@@ -1751,6 +1753,9 @@ def launch_mapdl(
             )
             if run_location is None:
                 mapdl._path = actual_run_location
+
+            mapdl._stdout_queue = stdout_queue
+            mapdl._stdout_queue_thread = thread
 
         # Setting launched property
         mapdl._launched = True

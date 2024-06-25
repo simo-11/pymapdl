@@ -62,10 +62,11 @@ skip_requires_194 = pytest.mark.skipif(
 
 TWAIT = 20
 NPROC = 1
+N_WORKER_POOL = 2
 
 
 @pytest.fixture(scope="module")
-def pool(tmpdir_factory):
+def pool_launcher(tmpdir_factory):
     run_path = str(tmpdir_factory.mktemp("ansys_pool"))
 
     port = os.environ.get("PYMAPDL_PORT", 50056)
@@ -73,7 +74,7 @@ def pool(tmpdir_factory):
     if ON_LOCAL:
 
         mapdl_pool = LocalMapdlPool(
-            2,
+            N_WORKER_POOL,
             license_server_check=False,
             run_location=run_path,
             port=port,
@@ -81,13 +82,12 @@ def pool(tmpdir_factory):
             exec_file=EXEC_FILE,
             additional_switches=QUICK_LAUNCH_SWITCHES,
             nproc=NPROC,
-            loglevel="DEBUG",
         )
     else:
         port2 = os.environ.get("PYMAPDL_PORT2", 50057)
 
         mapdl_pool = LocalMapdlPool(
-            2,
+            N_WORKER_POOL,
             license_server_check=False,
             start_instance=False,
             port=[port, port2],
@@ -113,6 +113,13 @@ def pool(tmpdir_factory):
         pth = mapdl_pool[0].directory
         if mapdl_pool._spawn_kwargs["remove_temp_files"]:
             assert not list(Path(pth).rglob("*.page*"))
+
+
+@pytest.fixture
+def pool(pool_launcher):
+    assert len(pool_launcher) == N_WORKER_POOL
+    yield pool_launcher
+    assert len(pool_launcher) == N_WORKER_POOL
 
 
 @skip_requires_194
@@ -155,6 +162,7 @@ def test_simple_map(pool):
 
 @skip_if_ignore_pool
 @requires("local")
+@requires("german")
 def test_map_timeout(pool):
     pool_sz = len(pool)
 
