@@ -1,0 +1,9 @@
+$n_pool_values = 15, 20, 25, 30, 35, 40, 45
+
+foreach ($n_pool in $n_pool_values) {
+    try {
+        python pool_xpl_stress_write_hex.py $n_pool > "pool_$n_pool.txt"
+    } catch {
+        Write-Host "An error occurred while processing n_pool=$n_pool. Continuing..."
+    }
+}
